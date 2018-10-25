@@ -34,7 +34,7 @@ export default class Home extends Component<Props> {
     return (
       <div className={styles.container} data-tid="container">
         <h2>Home</h2>
-        <div onClick={this.toggleTray.bind(this)} data-role="ddd">{state.title}</div>
+        <button type="button" onClick={this.toggleTray.bind(this)} data-role="ddd">{state.title}</button>
         <Link to={routes.COUNTER}>to Counter</Link>
       </div>
     );

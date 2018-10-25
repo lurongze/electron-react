@@ -14,6 +14,7 @@ import { app, BrowserWindow, Tray, Menu, ipcMain } from 'electron';
 import MenuBuilder from './menu';
 
 let mainWindow = null;
+let loadingWindow = null;
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
@@ -67,6 +68,27 @@ function updateTray() {
   tray.setToolTip('This is my application.');
   tray.setContextMenu(contextMenu);
 }
+function createLoadingWindow() {
+  loadingWindow = new BrowserWindow(Object.assign({
+    width: 580,
+    height: 200,
+    frame: false,
+    show: false
+  }, {parent: mainWindow}));
+
+  if (process.env.NODE_ENV === 'development') {
+    loadingWindow.loadURL(`${__dirname}/loading.html`);
+  } else {
+    loadingWindow.loadURL(`file://${__dirname}/client/loading.html`);
+  }
+
+  loadingWindow.on('closed', () => {
+    loadingWindow = null
+  });
+  loadingWindow.webContents.on('did-finish-load', () => {
+    loadingWindow.show();
+  });
+}
 let flashInterval = null;
 let flashCount = 0;
 function trayFlash(flash = true) {
@@ -92,25 +114,7 @@ function trayFlash(flash = true) {
   }
 }
 
-app.on('ready', async () => {
-  if (
-    process.env.NODE_ENV === 'development' ||
-    process.env.DEBUG_PROD === 'true'
-  ) {
-    // 这里因为网络的问题，无法安装，先注释掉
-    // await installExtensions();
-  }
-
-  updateTray();
-
-  ipcMain.on('flashTray', () => {
-    trayFlash();
-  });
-
-  ipcMain.on('cancelFlashTray', () => {
-    trayFlash(false);
-  });
-
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     show: false,
     width: 1024,
@@ -122,6 +126,9 @@ app.on('ready', async () => {
   // @TODO: Use 'ready-to-show' event
   //        https://github.com/electron/electron/blob/master/docs/api/browser-window.md#using-ready-to-show-event
   mainWindow.webContents.on('did-finish-load', () => {
+    if (loadingWindow) { // 把加载的窗口关闭
+      loadingWindow.close();
+    }
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
     }
@@ -139,4 +146,25 @@ app.on('ready', async () => {
 
   const menuBuilder = new MenuBuilder(mainWindow);
   menuBuilder.buildMenu();
+}
+
+app.on('ready', async () => {
+  if (
+    process.env.NODE_ENV === 'development' ||
+    process.env.DEBUG_PROD === 'true'
+  ) {
+    // 这里因为网络的问题，无法安装，先注释掉
+    // await installExtensions();
+  }
+  createLoadingWindow();
+  updateTray();
+  createMainWindow();
+  ipcMain.on('flashTray', () => {
+    trayFlash();
+  });
+  ipcMain.on('cancelFlashTray', () => {
+    trayFlash(false);
+  });
+
+
 });
